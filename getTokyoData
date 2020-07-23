@@ -1,0 +1,217 @@
+// ( ;∀;)<いっかいぜんぶきえちゃったね
+// Google App Scriptだよ
+function executeFunctions() {
+  
+  // global変数
+  var book = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = book.getSheetByName("rawdata_tokyo");
+  var outputDatasets = {};
+  var exceptiontxt = "";
+  
+  getTokyoData(sheet, outputDatasets, exceptiontxt);
+  writeData(sheet, outputDatasets);
+  createTweet(outputDatasets, exceptiontxt);
+}
+
+
+function getTokyoData(sheet, outputDatasets, exceptiontxt){
+
+  // 変数
+  var response;
+  var json;
+  
+  // gitHub上のrawData
+  // 新規患者の報告
+  var rawDataUrlReportedCount = "https://raw.githubusercontent.com/tokyo-metropolitan-gov/covid19/development/data/daily_positive_detail.json";
+  // 発熱相談件数 
+  var rawDataUrlFeverTelCount = "https://raw.githubusercontent.com/tokyo-metropolitan-gov/covid19/development/data/consultation_about_fever.json";
+  // 検査関連指標
+  var rawDataUrlInspection = "https://raw.githubusercontent.com/tokyo-metropolitan-gov/covid19/development/data/positive_rate.json";
+  // 検査陽性者の状況
+  var rawDataUrlPatients = "https://raw.githubusercontent.com/tokyo-metropolitan-gov/covid19/development/data/data.json";
+  // 病床数
+  var rawDataUrlBedNumber = "https://raw.githubusercontent.com/tokyo-metropolitan-gov/covid19/development/data/monitoring_items.json";
+
+
+  // Json取得　新規患者の報告
+  try{
+    response = UrlFetchApp.fetch(rawDataUrlReportedCount);
+  }catch(e){
+    exceptiontxt = concat("HTTP接続例外が発生したよ1！→", e);
+  }
+  
+  // データセット
+  json = JSON.parse(response.getContentText());
+  outputDatasets.lastUpdatedOn = json["date"];
+  outputDatasets.reportedCount = json["data"][json["data"].length - 1]["count"];
+  outputDatasets.trackedCount = json["data"][json["data"].length - 1]["reported_count"];
+  outputDatasets.untrackedCount = json["data"][json["data"].length - 1]["missing_count"];
+  outputDatasets.weeklyGainRatio = json["data"][json["data"].length - 1]["weekly_gain_ratio"];
+  outputDatasets.untrackedPercent = json["data"][json["data"].length - 1]["untracked_percent"];
+  outputDatasets.weeklyAvgCount = json["data"][json["data"].length - 1]["weekly_average_count"];
+  outputDatasets.weeklyAvgUntrackedCount = json["data"][json["data"].length - 1]["weekly_average_untracked_count"];
+  outputDatasets.weeklyAvgUntrackedIncreasePercent = json["data"][json["data"].length - 1]["weekly_average_untracked_increse_percent"];
+  
+  // Json取得　発熱相談件数
+  try{
+    response = UrlFetchApp.fetch(rawDataUrlFeverTelCount);
+  }catch(e){
+    exceptiontxt = concat("HTTP接続例外が発生したよ2！→", e);
+  }  
+
+  // データセット  
+  json = JSON.parse(response.getContentText());
+  outputDatasets.feverTelCount = json["data"][json["data"].length - 1]["count"];
+  outputDatasets.weeklyFeverTelAvg = json["data"][json["data"].length - 1]["weekly_average_count"];  
+  
+
+  // Json取得　検査関連指標
+  try{
+    response = UrlFetchApp.fetch(rawDataUrlInspection);
+  }catch(e){
+    exceptiontxt = concat("HTTP接続例外が発生したよ3！→", e);
+  }  
+
+  // データセット  
+  json = JSON.parse(response.getContentText());
+  if(json["date"] == outputDatasets.lastUpdatedOn){
+    outputDatasets.diagnosedDate = json["data"][json["data"].length - 1]["diagnosed_date"];    
+    outputDatasets.positiveCount = json["data"][json["data"].length - 1]["positive_count"];
+	outputDatasets.negativeCount = json["data"][json["data"].length - 1]["negative_count"];
+	outputDatasets.positiveRate = json["data"][json["data"].length - 1]["positive_rate"];
+	outputDatasets.weeklyDiagnosedCountAvg = json["data"][json["data"].length - 1]["weekly_average_diagnosed_count"];
+	outputDatasets.pcrPositiveCount = json["data"][json["data"].length - 1]["pcr_positive_count"];
+	outputDatasets.pcrNegativeCount = json["data"][json["data"].length - 1]["pcr_negative_count"];
+    outputDatasets.antiGenPositiveCount = json["data"][json["data"].length - 1]["antigen_positive_count"];
+	outputDatasets.antiGenNegativeCount = json["data"][json["data"].length - 1]["antigen_negative_count"];  
+
+  }else{
+    // 最新化されていなければ空欄とする。
+    outputDatasets.diagnosedDate = "";
+    outputDatasets.positiveCount = "";
+	outputDatasets.negativeCount = "";
+	outputDatasets.positiveRate = "";
+	outputDatasets.weeklyDiagnosedCountAvg = "";
+	outputDatasets.pcrPositiveCount = "";
+	outputDatasets.pcrNegativeCount = "";
+	outputDatasets.antiGenPositiveCount = "";
+	outputDatasets.antiGenNegativeCount = "";
+    
+  }
+
+  // Json取得　検査陽性者の状況
+  try{
+    response = UrlFetchApp.fetch(rawDataUrlPatients);
+  }catch(e){
+    exceptiontxt = concat("HTTP接続例外が発生したよ4！→", e);
+  }  
+
+  // データセット  
+  json = JSON.parse(response.getContentText());
+  outputDatasets.inspectedCount = json["main_summary"]["value"];
+  outputDatasets.patientsSum = json["main_summary"]["children"][0]["value"];  
+  outputDatasets.todayInHospitalCount = json["main_summary"]["children"][0]["children"][0]["value"];
+  outputDatasets.todayInHospitalNotSeriousCount = json["main_summary"]["children"][0]["children"][0]["children"][0]["value"];
+  outputDatasets.todayInHospitalSeriousCount = json["main_summary"]["children"][0]["children"][0]["children"][1]["value"];
+  outputDatasets.todayInHotelCount = json["main_summary"]["children"][0]["children"][3]["value"];
+  outputDatasets.todayAtHomeCount = json["main_summary"]["children"][0]["children"][4]["value"];
+  outputDatasets.todayWaitingCount = json["main_summary"]["children"][0]["children"][5]["value"];
+  outputDatasets.todayDeadCount = json["main_summary"]["children"][0]["children"][2]["value"];
+  outputDatasets.todayRecoveredCount = json["main_summary"]["children"][0]["children"][1]["value"];
+
+
+  // Json取得　病床数
+  try{
+    response = UrlFetchApp.fetch(rawDataUrlBedNumber);
+  }catch(e){
+    exceptiontxt = concat("HTTP接続例外が発生したよ5！→", e);
+  }  
+
+  // データセット
+  var hospBedNumStr;
+  var hospSeriousBedNumStr;
+  var endCount;
+  json = JSON.parse(response.getContentText());
+
+  hospBedNumStr = json["data"]["(6)入院患者確保病床数"].toString().replace(",","");
+  endCount = hospBedNumStr.lastIndexOf("床");
+  outputDatasets.hospBedNum = hospBedNumStr.slice(endCount - 4, endCount);
+
+  hospSeriousBedNumStr = json["data"]["(7)重症患者確保病床数"].toString().replace(",","");
+  endCount = hospSeriousBedNumStr.lastIndexOf("床");  
+  outputDatasets.hospSeriousBedNum = hospSeriousBedNumStr.slice(endCount - 3, endCount);
+  
+  
+  // 計算もやっちゃう
+  outputDatasets.hospBedWorkingRate = Math.round((outputDatasets.todayInHospitalCount / outputDatasets.hospBedNum) * 100 ) / 100
+  outputDatasets.hospSeriousBedWorkingRate = Math.round((outputDatasets.todayInHospitalSeriousCount / outputDatasets.hospSeriousBedNum) * 100 ) / 100  
+
+
+}
+
+// データ書き込み
+function writeData(sheet, outputDatasets){
+  
+  var lastRowNum = sheet.getLastRow();
+  var inputColNum = sheet.getLastColumn() + 1; 
+  var i;
+  var code;
+  
+  for(i = 3; i < lastRowNum + 1; i++){
+    // D列に記載しているコードを取得し、outputDatasetsの連想配列と照合する。
+    code = sheet.getRange(i, 4).getValue();
+    sheet.getRange(i, inputColNum).setValue(outputDatasets[code]);
+  }
+  
+}
+
+
+// つぶやく
+function createTweet(outputDatasets, exceptiontxt) {
+  
+  var text = "";
+  if(exceptiontxt == ""){
+    text = text.concat("【",outputDatasets.lastUpdatedOn,"】新型肺炎(東京都) \r\n新規患者報告件数:",outputDatasets.reportedCount);
+    text = text.concat(", 感染経路不明者割合:", outputDatasets.untrackedPercent, "%")
+    if(outputDatasets.positiveCount != ""){
+       text = text.concat(", 検査人数の7日間平均:", outputDatasets.weeklyDiagnosedCountAvg,", 検査陽性率:", outputDatasets.positiveRate, "%");
+    }else{
+       text = text.concat(", 検査人数の7日間平均:", "データ更新なし",", 検査陽性率:", "データ更新なし",);
+    }
+    text = text.concat(", 入院患者病床稼働率:", outputDatasets.hospBedWorkingRate, "%, 重症者病床稼働率:", outputDatasets.hospSeriousBedWorkingRate,"%");
+    text = text.concat("\r\n#TokyoCov19_sbdata");
+  }else{
+    text = exceptiontxt;
+  }
+  tweet(text);
+}
+
+function tweet(text) {
+  var eventName = "Tweet_TokyoCov19"
+  tweetByIfttt(eventName, text);
+}
+function tweetByIfttt(event,text) {
+  var key = "n2Q6BfKVuGptqsOpB9Hx8X01ybswg120R0Yt8nOg1AW"
+  var url = 'https://maker.ifttt.com/trigger/' + event + '/with/key/' + key
+  var data = {'value1':text};
+  var headers = {
+    "Content-Type": "application/json"
+  };
+  var options = {
+    'method' : 'post',
+    'headers' : headers,
+    'payload' : JSON.stringify(data),
+  };
+  UrlFetchApp.fetch(url,options);
+}
+
+
+// トリガー設定
+function setTriggerTokyo(){
+
+  const time = new Date();
+  time.setHours(21);
+  time.setMinutes(00);
+  ScriptApp.newTrigger("executeFunctions").timeBased().at(time).create();
+
+}
