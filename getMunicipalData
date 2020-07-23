@@ -1,0 +1,63 @@
+function executeMunicipalData() {
+  
+  // global変数
+  var book = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = book.getSheetByName("rawdata_municipality");
+  var exceptiontxt = "";
+  
+  getMunicipalData(sheet, exceptiontxt);
+}
+
+function getMunicipalData(sheet, exceptiontxt){
+
+  // 変数
+  var response;
+  var json;
+  
+  // gitHub上のrawData
+  // 市区町村別の報告
+  var rawDataUrlMunicipalCount = "https://raw.githubusercontent.com/tokyo-metropolitan-gov/covid19/development/data/patient.json";
+  
+  // Json取得　
+  try{
+    response = UrlFetchApp.fetch(rawDataUrlMunicipalCount);
+  }catch(e){
+    exceptiontxt = concat("HTTP接続例外が発生したよ6！→", e);
+  }
+  
+  // 書き込み列特定
+  var inputColNum = sheet.getLastColumn() + 1;     
+  
+  // データセット
+  var i;
+  var targetRowNum;
+  json = JSON.parse(response.getContentText());
+  
+  // 更新日付
+  sheet.getRange(3, inputColNum).setValue(json["date"]);
+  json["datasets"];
+　// 各市区町村
+  var label;
+  var foundCell;
+  for(i = 0; i < json["datasets"]["data"].length; i++){
+    
+    label = json["datasets"]["data"][i]["label"];
+    foundCell = sheet.createTextFinder(label).findNext();
+    sheet.getRange(foundCell.getRow(), inputColNum).setValue(json["datasets"]["data"][i]["count"]);
+    
+  }
+
+
+}
+
+
+
+// トリガー設定
+function setTriggerMunicipal(){
+
+  const time = new Date();
+  time.setHours(22);
+  time.setMinutes(00);
+  ScriptApp.newTrigger("executeMunicipalData").timeBased().at(time).create();
+
+}
